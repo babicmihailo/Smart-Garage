@@ -42,7 +42,7 @@ def sendNotifyAlive(sock, addr, st):
              "max-age=1800", "Controller")
     sock.sendto(notify.encode("utf-8"), addr)
     response, sock = sock.recvfrom(1024)
-    print(response)
+    #print(response)
 
 
 def sendNotifyByeBye(sock, addr, st):

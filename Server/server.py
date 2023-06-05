@@ -68,21 +68,20 @@ def handleClientRequest(sock, addr):
         # Set the timeout to 10 seconds
         sock.settimeout(10)
         mqttThread = threading.Thread(target=server_mqtt.startMQTT, args=(addr[0],))
-        mqttThread.start()
+        if not mqttThread.is_alive():
+            mqttThread.start()
         while True:
             data, addr = sock.recvfrom(1024)
             try:
                 if "NOTIFY" in data.decode("utf-8"):
-                    #print(f"Received NOTIFY request from {addr}: {data.decode()}")
-                    print(f"Received NOTIFY request from {addr}")
+                    #print(f"Received NOTIFY request from {addr}")
                     if "ssdp:alive" in data.decode("utf-8"):
                         # Send response back to client
-                        response = "NOTIFY:alive received"
+                        response = f"NOTIFY:alive transmitted"
                         sock.sendto(response.encode("utf-8"), addr)
                     elif "ssdp:byebye" in data.decode("utf-8"):
                         print(f"Received BYEBYE request from {addr}")
                         break
-                time.sleep(1)
             except Exception as e:
                 print(f"Error handling NOTIFY request: {e}")
             # Reset the timeout
@@ -93,14 +92,15 @@ def handleClientRequest(sock, addr):
 
     except Exception as e:
         print(f"Error handling client request: {e}")
+
     finally:
-        sock.close()
         try:
+            sock.close()
+            removeFromActive(client)
             mqttThread._stop()
+            print("Client disconnected.")
         except Exception as e:
-            print(f"Error closing mqttThread: {e}")
-        removeFromActive(client)
-        return
+            print(e)
 
 
 def startSsdpServer():
@@ -131,7 +131,13 @@ def startSsdpServer():
     except socket.error as e:
         print(f"Socket error: {e}")
     except KeyboardInterrupt:
-        clientThread._stop()
+        pass
+    finally:
+        try:
+            clientThread._stop()
+        except Exception:
+            print("Client hopefully terminated.")
 
 
+# https://we.tl/t-dOj0k4s3lS
 startSsdpServer()

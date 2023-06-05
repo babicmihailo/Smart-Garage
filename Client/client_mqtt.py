@@ -19,6 +19,7 @@ stateLights = "off"
 stateSprinkler = "off"
 stateParking = "off"
 stateVents = "off"
+stateActivity = "off"
 
 
 def setAlarm(newValue):
@@ -76,7 +77,13 @@ def setAccess(newValue):
     access = newValue
 
 
+def setActivity(newValue):
+    global stateActivity
+    stateActivity = newValue
+
+
 def serialReading():
+
     while True:
         try:
             # read data from serial port
@@ -116,54 +123,58 @@ def serialReading():
 
 
 def actuatorsLogic():
-
     if stateAlarm == "on":
+        #print("Alarm is on")
         ser.write(b'L')
     else:
         ser.write(b'H')
+        #print("Alarm is off")
     if stateDoors == "on":
+        #print("Doors are open")
         pass
-        #openDoors(60)
     else:
+        #print("Doors are closed")
         pass
     if stateLights == "on":
+        #print("Lights are on")
         pass
-        #turnOnLights(60)
     else:
+        #print("Lights are off")
         pass
     if stateSprinkler == "on":
+        #print("Sprinklers on")
         pass
-        #turnOnSplinkler
-        #callEmergency
     else:
+        #print("Sprinklers off")
         pass
     if stateVents == "on":
+        #print("Vents are on")
         pass
-        #turnOnVents
     else:
+        #print("Vents are off")
         pass
-        #turnOffVents
     counter = 0
-    if "on" in stateParking:
-        while(counter < 10):
+    if "on" in stateParking and "off" in stateAlarm:
+        while counter < 10:
             ser.write(b'L')
             time.sleep(0.25)
             ser.write(b'H')
             time.sleep(0.25)
             counter += 1
-    else:
+    elif "off" in stateParking and "off" in stateAlarm:
         ser.write(b'H')
         time.sleep(5)
 
 
 def onConnect(client, userdata, flags, rc):
-    print("Connected to broker with result code "+str(rc))
+    print("Connected to broker with result code " + str(rc))
     client.subscribe("server/sprinkler")
     client.subscribe("server/lights")
     client.subscribe("server/doors")
     client.subscribe("server/vents")
     client.subscribe("server/alarm")
     client.subscribe("server/parking")
+    client.subscribe("server/activity")
 
 
 def onMessage(client, userdata, msg):
@@ -180,6 +191,9 @@ def onMessage(client, userdata, msg):
         setSound(msg.payload.decode())
     if "parking" in msg.topic:
         setParking(msg.payload.decode())
+    if "activity" in msg.topic:
+        setActivity(msg.payload.decode())
+        print("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-")
 
 
 def startMQTT(addr):
@@ -192,17 +206,27 @@ def startMQTT(addr):
         print(addr)
         client.connect(addr, 1883, 60)
         client.loop_start()
-
         while True:
-            client.publish("client/access", str(access))
-            client.publish("client/distance", str(distance))
-            client.publish("client/motion", str(motion))
-            client.publish("client/pollution", str(pollution))
-            client.publish("client/sound", str(sound))
-            actuatorsLogic()
+            try:
+                if(stateActivity == "active"):
+                    client.publish("client/access", str(access))
+                    client.publish("client/distance", str(distance))
+                    client.publish("client/motion", str(motion))
+                    client.publish("client/pollution", str(pollution))
+                    client.publish("client/sound", str(sound))
+                    actuatorsLogic()
+                else:
+                    print("Device is sleeping/inactive")
+                    print("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-")
+                    time.sleep(5)
+            except KeyboardInterrupt:
+                break
+
     except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        print(f"Error during MQTT Publishing: {e}")
+    finally:
         serialThread._stop()
         client.loop_stop()
         client.disconnect()
-    except Exception as e:
-        print(f"Error during MQTT Publishing: {e}")

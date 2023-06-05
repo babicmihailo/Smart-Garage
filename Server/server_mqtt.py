@@ -1,10 +1,8 @@
-import json
-import os
+import random
 import time
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
-from json.decoder import JSONDecodeError
 import paho.mqtt.client as mqtt
 
 # Initialize Firebase app with credentials
@@ -13,8 +11,6 @@ firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://smart-garage-81733-default-rtdb.europe-west1.firebasedatabase.app/'
 })
 
-# Define path to data.json file
-filePath = './data.json'
 
 # Get a reference to the Firebase Realtime Database root
 ref = db.reference()
@@ -31,52 +27,79 @@ def onConnect(client, userdata, flags, rc):
 
 def controlLogic():
     data = ref.get()
-
-    if int(data["distance"]) < 20:
-        data.update({"stateParking": "on"})
-    else:
-        data.update({"stateParking": "off"})
-
-    if int(time.time()) - int(data["timestampVents"])/1000 > 30:
-        if 500 < int(data["pollution"]) < 1000:
-            data.update({"stateVents": "on"})
-        elif int(data["pollution"]) >= 1000:
-            data.update({"stateSprinkler": "on"})
-            data.update({"stateVents": "on"})
+    if (data["stateActivity"] == "active"):
+        if int(data["distance"]) < 20:
+            data.update({"stateParking": "on"})
         else:
-            data.update({"stateSprinkler": "off"})
-            data.update({"stateVents": "off"})
-    else:
-        if int(data["pollution"]) >= 1000:
-            data.update({"stateSprinkler": "on"})
-        else:
-            data.update({"stateSprinkler": "off"})
+            data.update({"stateParking": "off"})
 
-    if int(time.time()) - int(data["timestampLights"])/1000 > 30:
-        if data["motion"] == "1":
-            data.update({"stateLights": "on"})
+        if int(time.time()) - int(data["timestampVents"])/1000 > 30:
+            if 500 < int(data["pollution"]) < 1000:
+                data.update({"stateVents": "on"})
+            elif int(data["pollution"]) >= 1000:
+                data.update({"stateSprinkler": "on"})
+                data.update({"stateVents": "on"})
+            else:
+                data.update({"stateSprinkler": "off"})
+                data.update({"stateVents": "off"})
         else:
-            data.update({"stateLights": "off"})
+            if int(data["pollution"]) >= 1000:
+                data.update({"stateSprinkler": "on"})
+            else:
+                data.update({"stateSprinkler": "off"})
 
-    if int(time.time()) - int(data["timestampDoors"])/1000 > 30:
-        if data["access"] == "1" or data["sound"] == "1":
-            data.update({"stateDoors": "on"})
-            data.update({"stateAlarm": "off"})
-        elif data["access"] == "0" or data["sound"] == "0":
-            data.update({"stateDoors": "off"})
-            data.update({"stateAlarm": "off"})
-        else:
-            data.update({"stateDoors": "off"})
-            data.update({"stateAlarm": "on"})
-    else:
-        if data["access"] == "1" or data["sound"] == "1":
-            data.update({"stateAlarm": "off"})
-        elif data["access"] == "0" or data["sound"] == "0":
-            data.update({"stateAlarm": "off"})
-        else:
-            data.update({"stateAlarm": "on"})
+        if int(time.time()) - int(data["timestampLights"])/1000 > 30:
+            if data["motion"] == "1":
+                data.update({"stateLights": "on"})
+            else:
+                data.update({"stateLights": "off"})
 
-    ref.update(data)  # write the updated data back to the database
+        if int(time.time()) - int(data["timestampDoors"])/1000 > 30:
+            if data["access"] == "1" or data["sound"] == "1":
+                data.update({"stateDoors": "on"})
+                data.update({"stateAlarm": "off"})
+            elif data["access"] == "0" or data["sound"] == "0":
+                data.update({"stateDoors": "off"})
+                data.update({"stateAlarm": "off"})
+            else:
+                data.update({"stateDoors": "off"})
+                data.update({"stateAlarm": "on"})
+        else:
+            if data["access"] == "1" or data["sound"] == "1":
+                data.update({"stateAlarm": "off"})
+            elif data["access"] == "0" or data["sound"] == "0":
+                data.update({"stateAlarm": "off"})
+            else:
+                data.update({"stateAlarm": "on"})
+
+    elif (data["stateActivity"] == "sleep"):
+        if int(time.time()) - int(data["timestampVents"])/1000 > 30:
+            if 500 < int(data["pollution"]) < 1000:
+                data.update({"stateVents": "on"})
+            elif int(data["pollution"]) >= 1000:
+                data.update({"stateSprinkler": "on"})
+                data.update({"stateVents": "on"})
+            else:
+                data.update({"stateSprinkler": "off"})
+                data.update({"stateVents": "off"})
+        if int(time.time()) - int(data["timestampLights"])/1000 > 30:
+            if data["motion"] == "1":
+                data.update({"stateLights": "on"})
+            else:
+                data.update({"stateLights": "off"})
+
+        if int(time.time()) - int(data["timestampDoors"])/1000 > 30:
+            if data["access"] == "1" or data["sound"] == "1":
+                data.update({"stateDoors": "on"})
+                data.update({"stateAlarm": "off"})
+            elif data["access"] == "0" or data["sound"] == "0":
+                data.update({"stateDoors": "off"})
+                data.update({"stateAlarm": "off"})
+            else:
+                data.update({"stateDoors": "off"})
+                data.update({"stateAlarm": "on"})
+
+    ref.update(data)
 
 
 def onMessage(client, userdata, msg):
@@ -93,6 +116,7 @@ def onMessage(client, userdata, msg):
         data.update({"pollution": msg.payload.decode()})
     if "sound" in msg.topic:
         data.update({"sound": msg.payload.decode()})
+        print("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-")
 
     ref.update(data)  # write the updated data back to the database
 
@@ -108,12 +132,22 @@ def startMQTT(addr):
         while True:
             controlLogic()
             data = ref.get()
-            client.publish("server/sprinkler", data["stateSprinkler"])
-            client.publish("server/lights", data["stateLights"])
-            client.publish("server/doors", data["stateDoors"])
-            client.publish("server/vents", data["stateVents"])
-            client.publish("server/alarm", data["stateAlarm"])
-            client.publish("server/parking", data["stateParking"])
+            if (data["stateActivity"] == "active"):
+                client.publish("server/sprinkler", data["stateSprinkler"])
+                client.publish("server/lights", data["stateLights"])
+                client.publish("server/doors", data["stateDoors"])
+                client.publish("server/vents", data["stateVents"])
+                client.publish("server/alarm", data["stateAlarm"])
+                client.publish("server/parking", data["stateParking"])
+                client.publish("server/activity", data["stateActivity"])
+
+            elif (data["stateActivity"] == "sleep"):
+                client.publish("server/lights", data["stateLights"])
+                client.publish("server/doors", data["stateDoors"])
+                client.publish("server/vents", data["stateVents"])
+                client.publish("server/activity", data["stateActivity"])
+            elif (data["stateActivity"] == "inactive"):
+                client.publish("server/activity", data["stateActivity"])
             time.sleep(5)
     except KeyboardInterrupt:
         client.loop_stop()
