@@ -1,5 +1,7 @@
 # IoT Smart Garage Project
 
+![GitHub License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
+
 Welcome to the IoT Smart Garage Project! This project combines hardware and software components to create an intelligent garage system. It leverages SSDP and MQTT protocols, Arduino sensors, cloud integration, and an Android application for seamless control and monitoring of your garage. With sensors like proximity, sound, movement, gas, and RFID, the project achieves smart management of lights, alarms, safety systems, and automatic garage opening/closing.
 
 ## Features
